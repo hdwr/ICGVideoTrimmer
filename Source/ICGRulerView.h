@@ -11,8 +11,8 @@
 @interface ICGRulerView : UIView
 
 @property (assign, nonatomic) CGFloat widthPerSecond;
-@property (strong, nonatomic) UIColor *themeColor;
+@property (strong, nonatomic) UIColor *rulerColor;
 
-- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width themeColor:(UIColor *)color;
+- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width rulerColor:(UIColor *)color;
 
 @end

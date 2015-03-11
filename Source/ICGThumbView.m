@@ -50,31 +50,26 @@
     
     if (self.thumbImage) {
         [self.thumbImage drawInRect:rect];
+        
     } else {
         //// Frames
         CGRect bubbleFrame = self.bounds;
         
-        //// Rounded Rectangle Drawing
-        CGRect roundedRectangleRect = CGRectMake(CGRectGetMinX(bubbleFrame), CGRectGetMinY(bubbleFrame), CGRectGetWidth(bubbleFrame), CGRectGetHeight(bubbleFrame));
-        UIBezierPath *roundedRectanglePath = [UIBezierPath bezierPathWithRoundedRect: roundedRectangleRect byRoundingCorners: UIRectCornerTopLeft | UIRectCornerBottomLeft cornerRadii: CGSizeMake(3, 3)];
-        if (self.isRight) {
-            roundedRectanglePath = [UIBezierPath bezierPathWithRoundedRect: roundedRectangleRect byRoundingCorners: UIRectCornerTopRight | UIRectCornerBottomRight cornerRadii: CGSizeMake(3, 3)];
-        }
-        [roundedRectanglePath closePath];
+        //// Square Rectangle Drawing
+        CGRect thumbRect = CGRectMake(CGRectGetMinX(bubbleFrame), CGRectGetMinY(bubbleFrame), CGRectGetWidth(bubbleFrame), CGRectGetHeight(bubbleFrame));
+        CGContextRef context = UIGraphicsGetCurrentContext();
         [self.color setFill];
-        [roundedRectanglePath fill];
+        CGContextFillRect(context, thumbRect);
         
         
-        CGRect decoratingRect = CGRectMake(CGRectGetMinX(bubbleFrame)+CGRectGetWidth(bubbleFrame)/2.5, CGRectGetMinY(bubbleFrame)+CGRectGetHeight(bubbleFrame)/4, 1.5, CGRectGetHeight(bubbleFrame)/2);
-        UIBezierPath *decoratingPath = [UIBezierPath bezierPathWithRoundedRect:decoratingRect byRoundingCorners: UIRectCornerTopLeft | UIRectCornerBottomLeft | UIRectCornerBottomRight | UIRectCornerTopRight cornerRadii: CGSizeMake(1, 1)];
-        [decoratingPath closePath];
-        [[UIColor colorWithWhite:1 alpha:0.5] setFill];
-        [decoratingPath fill];
-
+        // Draw Handles
+        [[UIColor colorWithWhite:0 alpha:0.2] setFill];
+        CGRect handleRect = CGRectMake(CGRectGetMinX(bubbleFrame)+CGRectGetWidth(bubbleFrame)/2.5 - 1, CGRectGetMinY(bubbleFrame)+CGRectGetHeight(bubbleFrame)/2 - 4.5, 1.1, 10);
+        CGContextFillRect(context, handleRect);
+        
+        handleRect = CGRectMake(CGRectGetMinX(bubbleFrame)+CGRectGetWidth(bubbleFrame)/2.5 + 2.3, CGRectGetMinY(bubbleFrame)+CGRectGetHeight(bubbleFrame)/2 - 4.5, 1.1, 10);
+        CGContextFillRect(context, handleRect);
     }
-    
-    
-    
 }
 
 

@@ -16,8 +16,11 @@
 // Video to be trimmed
 @property (strong, nonatomic) AVAsset *asset;
 
-// Theme color for the trimmer view
-@property (strong, nonatomic) UIColor *themeColor;
+// Color for the trimmer view
+@property (strong, nonatomic) UIColor *trimmerColor;
+
+// Color for the ruler view
+@property (strong, nonatomic) UIColor *rulerColor;
 
 // Maximum length for the trimmed video
 @property (assign, nonatomic) CGFloat maxLength;
