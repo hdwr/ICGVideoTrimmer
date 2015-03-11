@@ -233,7 +233,14 @@
 
             CGFloat newRightViewMidX = center.x += deltaX;
             CGFloat minX = CGRectGetMaxX(self.leftOverlayView.frame) + self.minLength * self.widthPerSecond;
-            CGFloat maxX = CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5 ? CGRectGetMaxX(self.frameView.frame) : CGRectGetWidth(self.frame) - self.thumbWidth;
+
+            CGFloat maxX;
+            if (CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5) {
+                maxX = CGRectGetMaxX(self.frameView.frame);
+            } else {
+                maxX = CGRectGetWidth(self.frame) - self.thumbWidth;
+            }
+
             if (newRightViewMidX - self.overlayWidth/2 < minX) {
                 newRightViewMidX = minX + self.overlayWidth/2;
             } else if (newRightViewMidX - self.overlayWidth/2 > maxX) {
