@@ -85,6 +85,6 @@
 
 - (void)trimmerViewWillBeginDraggingWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
 
-- (void)trimmerViewWillEndDraggingWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
+- (void)trimmerViewDidEndDraggingWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
 
 @end

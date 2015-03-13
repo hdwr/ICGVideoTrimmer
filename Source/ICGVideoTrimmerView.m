@@ -268,7 +268,7 @@
         }
 
         case UIGestureRecognizerStateEnded:
-            [self.delegate trimmerViewWillEndDraggingWithScroll:NO movedLeftHandle:YES movedRightHandle:NO];
+            [self.delegate trimmerViewDidEndDraggingWithScroll:NO movedLeftHandle:YES movedRightHandle:NO];
             break;
 
         default:
@@ -320,7 +320,7 @@
         }
 
         case UIGestureRecognizerStateEnded:
-            [self.delegate trimmerViewWillEndDraggingWithScroll:NO movedLeftHandle:NO movedRightHandle:YES];
+            [self.delegate trimmerViewDidEndDraggingWithScroll:NO movedLeftHandle:NO movedRightHandle:YES];
             break;
 
         default:
@@ -518,9 +518,16 @@
     [self.delegate trimmerViewWillBeginDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
 }
 
-- (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
 {
-    [self.delegate trimmerViewWillEndDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
+    if (!decelerate) {
+        [self.delegate trimmerViewDidEndDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
+    }
+}
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
+{
+    [self.delegate trimmerViewDidEndDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
 }
 
 @end
