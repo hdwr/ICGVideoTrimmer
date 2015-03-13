@@ -14,6 +14,7 @@
 
 @property (strong, nonatomic) UIView *contentView;
 @property (strong, nonatomic) UIView *frameView;
+@property (strong, nonatomic) UIView *playHeadView;
 @property (strong, nonatomic) UIScrollView *scrollView;
 @property (strong, nonatomic) AVAssetImageGenerator *imageGenerator;
 
@@ -25,9 +26,6 @@
 @property (strong, nonatomic) UIView *trackerView;
 @property (strong, nonatomic) UIView *topBorder;
 @property (strong, nonatomic) UIView *bottomBorder;
-
-@property (nonatomic) CGFloat startTime;
-@property (nonatomic) CGFloat endTime;
 
 @property (nonatomic) Float64 duration;
 
@@ -104,15 +102,27 @@
 
 
     CGFloat ratio = self.showsRulerView ? 0.58 : 1.0;
-    self.frameView = [[UIView alloc] initWithFrame:CGRectMake(15, 0, CGRectGetWidth(self.contentView.frame)-20, CGRectGetHeight(self.contentView.frame)*ratio)];
+    // NOTE: frameView is reset during addFrames
+    CGRect frameViewFrame = CGRectMake(15 + self.thumbPadding, 2, CGRectGetWidth(self.contentView.frame) - (15 * 2), CGRectGetHeight(self.contentView.frame) * ratio);
+    self.frameView = [[UIView alloc] initWithFrame:frameViewFrame];
     [self.frameView.layer setMasksToBounds:YES];
     [self.contentView addSubview:self.frameView];
 
     [self addFrames];
 
     if (self.showsRulerView) {
-        CGRect rulerFrame = CGRectMake(0, CGRectGetHeight(self.contentView.frame)*ratio, CGRectGetWidth(self.contentView.frame)+15, CGRectGetHeight(self.contentView.frame) * (1 - ratio));
+        CGFloat rulerWidth = CGRectGetWidth(self.contentView.frame) - self.thumbPadding;
+        // round to nearest second and always add enough space to show next time offset
+        rulerWidth = (ceilf(rulerWidth / self.widthPerSecond) * self.widthPerSecond) + self.widthPerSecond / 2;
+
+        // Always show at least 15 seconds
+        CGFloat minRulerWidth = CGRectGetWidth(self.frame) - (self.thumbPadding * 2) - self.thumbWidth + self.widthPerSecond / 2;
+        if (rulerWidth < CGRectGetWidth(self.frame) - self.thumbPadding + self.thumbWidth)
+            rulerWidth = minRulerWidth;
+
+        CGRect rulerFrame = CGRectMake(self.thumbPadding, CGRectGetHeight(self.contentView.frame) * ratio, rulerWidth, CGRectGetHeight(self.contentView.frame) * (1 - ratio));
         ICGRulerView *rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:self.themeColor];
+
         [self.contentView addSubview:rulerView];
     }
 
@@ -125,13 +135,13 @@
     [self.bottomBorder setBackgroundColor:self.trimmerColor];
     [self addSubview:self.bottomBorder];
 
-    // width for left and right overlay views
-    self.overlayWidth =  CGRectGetWidth(self.frame) - (self.minLength * self.widthPerSecond);
+    // width for left and right overlay views. Just use the wh
+    self.overlayWidth = CGRectGetWidth(self.frame) - (self.minLength * self.widthPerSecond);
 
     // add left overlay view
-    self.leftOverlayView = [[UIView alloc] initWithFrame:CGRectMake(self.thumbWidth - self.overlayWidth, 0, self.overlayWidth, CGRectGetHeight(self.frameView.frame))];
-    CGRect leftThumbFrame = CGRectMake(self.overlayWidth-self.thumbWidth, 0, self.thumbWidth, CGRectGetHeight(self.frameView.frame));
-
+    CGRect leftViewFrame = CGRectMake(self.thumbPadding + self.thumbWidth - self.overlayWidth, 2, self.overlayWidth, CGRectGetHeight(self.frameView.frame));
+    self.leftOverlayView = [[UIView alloc] initWithFrame:leftViewFrame];
+    CGRect leftThumbFrame = CGRectMake(self.overlayWidth - self.thumbWidth, 0, self.thumbWidth, CGRectGetHeight(self.frameView.frame));
     if (self.leftThumbImage) {
         self.leftThumbView = [[ICGThumbView alloc] initWithFrame:leftThumbFrame thumbImage:self.leftThumbImage];
     } else {
@@ -153,8 +163,14 @@
     [self addSubview:self.leftOverlayView];
 
     // add right overlay view
-    CGFloat rightViewFrameX = CGRectGetWidth(self.frameView.frame) < CGRectGetWidth(self.frame) ? CGRectGetMaxX(self.frameView.frame) : CGRectGetWidth(self.frame) - self.thumbWidth;
-    self.rightOverlayView = [[UIView alloc] initWithFrame:CGRectMake(rightViewFrameX, 0, self.overlayWidth, CGRectGetHeight(self.frameView.frame))];
+
+    CGFloat rightViewFrameX = CGRectGetMaxX(self.frameView.frame);
+    if (rightViewFrameX > (CGRectGetWidth(self.frame) - self.thumbWidth - self.thumbPadding)) {
+        rightViewFrameX = CGRectGetWidth(self.frame) - self.thumbWidth - self.thumbPadding;
+    }
+
+    self.rightOverlayView = [[UIView alloc] initWithFrame:CGRectMake(rightViewFrameX, 2, self.overlayWidth, CGRectGetHeight(self.frameView.frame))];
+
     if (self.rightThumbImage) {
         self.rightThumbView = [[ICGThumbView alloc] initWithFrame:CGRectMake(0, 0, self.thumbWidth, CGRectGetHeight(self.frameView.frame)) thumbImage:self.rightThumbImage];
     } else {
@@ -168,15 +184,51 @@
     [self.rightOverlayView setBackgroundColor:[UIColor colorWithWhite:0 alpha:0.6]];
     [self addSubview:self.rightOverlayView];
 
+    // Need to add playHeadView on top of everything else
+    self.playHeadView = [[UIView alloc] init];
+    self.playHeadView.backgroundColor = [UIColor whiteColor];
+    self.playHeadView.alpha = 0.0;
+    [self addSubview:self.playHeadView];
+
     [self updateBorderFrames];
-    [self notifyDelegate];
+    [self notifyDelegateScrolled:YES movedLeftHandle:NO movedRightHandle:NO];
 }
+
+- (void)updatePlayHead:(CMTime)time
+{
+    Float64 timeSeconds = CMTimeGetSeconds(time);
+    CGFloat offsetX = (timeSeconds * self.widthPerSecond)
+                    - self.scrollView.contentOffset.x
+                    + self.thumbPadding + 15;
+    [self.playHeadView setFrame:CGRectMake(offsetX, 0, 2.0, CGRectGetHeight(self.frameView.frame) + 4.0)];
+}
+
+- (void)hidePlayHeadAnimated:(BOOL)animated
+{
+    void (^animationBlock)() = ^{ self.playHeadView.alpha = 0.0; };
+    if (animated) {
+        [UIView animateWithDuration:0.2 animations:animationBlock];
+    } else {
+        animationBlock();
+    }
+}
+
+- (void)showPlayHeadAnimated:(BOOL)animated
+{
+    void (^animationBlock)() = ^{ self.playHeadView.alpha = 1.0; };
+    if (animated) {
+        [UIView animateWithDuration:0.2 animations:animationBlock];
+    } else {
+        animationBlock();
+    }
+}
+
 
 - (void)updateBorderFrames
 {
     CGFloat height = self.borderWidth ? self.borderWidth : 1;
-    [self.topBorder setFrame:CGRectMake(CGRectGetMaxX(self.leftOverlayView.frame), 0, CGRectGetMinX(self.rightOverlayView.frame)-CGRectGetMaxX(self.leftOverlayView.frame), height)];
-    [self.bottomBorder setFrame:CGRectMake(CGRectGetMaxX(self.leftOverlayView.frame), CGRectGetHeight(self.frameView.frame)-height, CGRectGetMinX(self.rightOverlayView.frame)-CGRectGetMaxX(self.leftOverlayView.frame), height)];
+    [self.topBorder setFrame:CGRectMake(CGRectGetMaxX(self.leftOverlayView.frame), 2, CGRectGetMinX(self.rightOverlayView.frame)-CGRectGetMaxX(self.leftOverlayView.frame), height)];
+    [self.bottomBorder setFrame:CGRectMake(CGRectGetMaxX(self.leftOverlayView.frame), CGRectGetHeight(self.frameView.frame)-height+2, CGRectGetMinX(self.rightOverlayView.frame)-CGRectGetMaxX(self.leftOverlayView.frame), height)];
 }
 
 - (void)moveLeftOverlayView:(UIPanGestureRecognizer *)gesture
@@ -184,7 +236,9 @@
     switch (gesture.state) {
         case UIGestureRecognizerStateBegan:
             self.leftStartPoint = [gesture locationInView:self];
+            [self.delegate trimmerViewWillBeginDraggingWithScroll:NO movedLeftHandle:YES movedRightHandle:NO];
             break;
+
         case UIGestureRecognizerStateChanged:
         {
             CGPoint point = [gesture locationInView:self];
@@ -196,8 +250,10 @@
             CGFloat newLeftViewMidX = center.x += deltaX;;
             CGFloat maxWidth = CGRectGetMinX(self.rightOverlayView.frame) - (self.minLength * self.widthPerSecond);
             CGFloat newLeftViewMinX = newLeftViewMidX - self.overlayWidth/2;
-            if (newLeftViewMinX < self.thumbWidth - self.overlayWidth) {
-                newLeftViewMidX = self.thumbWidth - self.overlayWidth + self.overlayWidth/2;
+
+            if (newLeftViewMinX < self.thumbPadding + self.thumbWidth - self.overlayWidth) {
+                newLeftViewMidX = self.thumbPadding + self.thumbWidth - self.overlayWidth + self.overlayWidth/2;
+
             } else if (newLeftViewMinX + self.overlayWidth > maxWidth) {
                 newLeftViewMidX = maxWidth - self.overlayWidth / 2;
             }
@@ -205,10 +261,15 @@
             self.leftOverlayView.center = CGPointMake(newLeftViewMidX, self.leftOverlayView.center.y);
             self.leftStartPoint = point;
             [self updateBorderFrames];
-            [self notifyDelegate];
+
+            [self notifyDelegateScrolled:NO movedLeftHandle:YES movedRightHandle:NO];
 
             break;
         }
+
+        case UIGestureRecognizerStateEnded:
+            [self.delegate trimmerViewWillEndDraggingWithScroll:NO movedLeftHandle:YES movedRightHandle:NO];
+            break;
 
         default:
             break;
@@ -222,7 +283,9 @@
     switch (gesture.state) {
         case UIGestureRecognizerStateBegan:
             self.rightStartPoint = [gesture locationInView:self];
+            [self.delegate trimmerViewWillBeginDraggingWithScroll:NO movedLeftHandle:NO movedRightHandle:YES];
             break;
+
         case UIGestureRecognizerStateChanged:
         {
             CGPoint point = [gesture locationInView:self];
@@ -238,7 +301,7 @@
             if (CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5) {
                 maxX = CGRectGetMaxX(self.frameView.frame);
             } else {
-                maxX = CGRectGetWidth(self.frame) - self.thumbWidth;
+                maxX = CGRectGetWidth(self.frame) - self.thumbWidth - self.thumbPadding;
             }
 
             if (newRightViewMidX - self.overlayWidth/2 < minX) {
@@ -250,10 +313,15 @@
             self.rightOverlayView.center = CGPointMake(newRightViewMidX, self.rightOverlayView.center.y);
             self.rightStartPoint = point;
             [self updateBorderFrames];
-            [self notifyDelegate];
+
+            [self notifyDelegateScrolled:NO movedLeftHandle:NO movedRightHandle:YES];
 
             break;
         }
+
+        case UIGestureRecognizerStateEnded:
+            [self.delegate trimmerViewWillEndDraggingWithScroll:NO movedLeftHandle:NO movedRightHandle:YES];
+            break;
 
         default:
             break;
@@ -275,8 +343,13 @@
     self.trackerView.hidden = flag;
 }
 
-- (void)notifyDelegate
+- (void)notifyDelegateScrolled:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle
 {
+    CGFloat previousStartTime = self.startTime;
+    CGFloat previousEndTime = self.endTime;
+
+    CGFloat scrollTime = (self.scrollView.contentOffset.x) / self.widthPerSecond;
+
     CGFloat start = CGRectGetMaxX(self.leftOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x -self.thumbWidth) / self.widthPerSecond;
     if (!self.trackerView.hidden && start != self.startTime) {
         [self seekToTime:start];
@@ -284,22 +357,31 @@
     self.startTime = start;
     self.endTime = CGRectGetMinX(self.rightOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x - self.thumbWidth) / self.widthPerSecond;
 
-//     self.startTime = CGRectGetMaxX(self.leftOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x - self.thumbWidth) / self.widthPerSecond;
-//     self.endTime = CGRectGetMinX(self.rightOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x + self.thumbWidth) / self.widthPerSecond;
+    // self.startTime = scrollTime + (CGRectGetMaxX(self.leftOverlayView.frame) - self.thumbPadding - self.thumbWidth) / self.widthPerSecond;
+    // self.endTime = scrollTime + (CGRectGetMinX(self.rightOverlayView.frame) - self.thumbPadding - self.thumbWidth) / self.widthPerSecond;
 
-//     if (self.startTime < 0.0) {
-//         self.endTime += self.startTime * -1;
-//         self.startTime = 0.0;
-//     }
-//     if (self.endTime > _duration) {
-//         self.startTime -= self.endTime - _duration;
-//         self.endTime = _duration;
-//     }
-//     if (self.startTime < 0.0) self.startTime = 0.0;
+    // if (self.startTime < 0.0) {
+    //     self.endTime += self.startTime * -1;
+    //     self.startTime = 0.0;
+    // }
+    // if (self.endTime > _duration) {
+    //     self.startTime -= self.endTime - _duration;
+    //     self.endTime = _duration;
+    // }
+    // if (self.startTime < 0.0) self.startTime = 0.0;
 
-    NSLog(@"start time: %f, end time: %f", self.startTime, self.endTime);
+    // Calculate CMTime values
+    UInt64 startTimeFrame = (UInt64)(self.startTime * 600);
+    UInt64 endTimeFrame = (UInt64)(self.endTime * 600);
+    self.startCMTime = CMTimeMake(startTimeFrame, 600);
+    self.endCMTime = CMTimeMake(endTimeFrame, 600);
 
-    [self.delegate trimmerView:self didChangeLeftPosition:self.startTime rightPosition:self.endTime];
+    // Only notify delegate if there was a change
+    if (fabs(self.startTime - previousStartTime) > FLT_EPSILON || fabs(self.endTime - previousEndTime) > FLT_EPSILON) {
+        NSLog(@"start time: %f, end time: %f", self.startTime, self.endTime);
+
+        [self.delegate trimmerView:self didChangeRangeWithScroll:scrolled movedLeftHandle:leftHandle movedRightHandle:rightHandle];
+    }
 }
 
 - (void)addFrames
@@ -313,7 +395,7 @@
     CGFloat frameWidth = maxHeight * 4/3;
 
     if ([self isRetina]){
-        self.imageGenerator.maximumSize = CGSizeMake(maxWidth*2, maxHeight*2);
+        self.imageGenerator.maximumSize = CGSizeMake(maxWidth * 2, maxHeight * 2);
     } else {
         self.imageGenerator.maximumSize = CGSizeMake(maxWidth, maxHeight);
     }
@@ -346,12 +428,20 @@
     }
 
     Float64 duration = CMTimeGetSeconds([self.asset duration]);
-    CGFloat screenWidth = CGRectGetWidth(self.frame) - 2*self.thumbWidth; // quick fix to make up for the width of thumb views
+    // quick fix to make up for the width of thumb views
+    CGFloat screenWidth = CGRectGetWidth(self.frame) - (self.thumbWidth * 2) - (self.thumbPadding * 2);
     NSInteger actualFramesNeeded;
 
     CGFloat frameViewFrameWidth = (duration / self.maxLength) * screenWidth;
-    [self.frameView setFrame:CGRectMake(self.thumbWidth, 0, frameViewFrameWidth, CGRectGetHeight(self.frameView.frame))];
-    CGFloat contentViewFrameWidth = CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5 ? screenWidth + 30 : frameViewFrameWidth;
+    [self.frameView setFrame:CGRectMake(self.thumbWidth + self.thumbPadding, 2, frameViewFrameWidth, CGRectGetHeight(self.frameView.frame))];
+    CGFloat contentViewFrameWidth;
+
+    if (CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5) {
+        contentViewFrameWidth = screenWidth + 30;
+    } else {
+        contentViewFrameWidth = frameViewFrameWidth + (self.thumbWidth * 2) + (self.thumbPadding * 2);
+    }
+
     [self.contentView setFrame:CGRectMake(0, 0, contentViewFrameWidth, CGRectGetHeight(self.contentView.frame))];
     [self.scrollView setContentSize:self.contentView.frame.size];
     NSInteger minFramesNeeded = screenWidth / picWidth + 1;
@@ -362,16 +452,17 @@
 
     int preferredWidth = 0;
     NSMutableArray *times = [[NSMutableArray alloc] init];
-    for (int i=1; i < actualFramesNeeded; i++){
+    for (int i = 1; i < actualFramesNeeded; i++){
 
-        CMTime time = CMTimeMakeWithSeconds(i*durationPerFrame, 600);
+        CMTime time = CMTimeMakeWithSeconds(i * durationPerFrame, 600);
+
         [times addObject:[NSValue valueWithCMTime:time]];
 
         UIImageView *tmp = [[UIImageView alloc] initWithImage:videoScreen];
         tmp.tag = i;
 
         CGRect currentFrame = tmp.frame;
-        currentFrame.origin.x = i*frameWidth;
+        currentFrame.origin.x = i * frameWidth;
 
         currentFrame.size.width = frameWidth;
         preferredWidth += currentFrame.size.width;
@@ -419,12 +510,17 @@
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
-    if (CMTimeGetSeconds([self.asset duration]) <= self.maxLength + 0.5) {
-        [UIView animateWithDuration:0.3 animations:^{
-            [scrollView setContentOffset:CGPointZero];
-        }];
-    }
-    [self notifyDelegate];
+    [self notifyDelegateScrolled:YES movedLeftHandle:NO movedRightHandle:NO];
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
+{
+    [self.delegate trimmerViewWillBeginDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
+}
+
+- (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset
+{
+    [self.delegate trimmerViewWillEndDraggingWithScroll:YES movedLeftHandle:NO movedRightHandle:NO];
 }
 
 @end

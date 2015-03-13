@@ -28,6 +28,19 @@
 // Minimum length for the trimmed video
 @property (assign, nonatomic) CGFloat minLength;
 
+// Start time for video
+@property (assign, nonatomic) CGFloat startTime;
+// End time for video
+@property (assign, nonatomic) CGFloat endTime;
+
+// Start time for video as CMTime
+@property (assign, nonatomic) CMTime startCMTime;
+// End time for video as CMTime
+@property (assign, nonatomic) CMTime endCMTime;
+
+// Padding insets for thumbs
+@property (assign, nonatomic) CGFloat thumbPadding;
+
 // Show ruler view on the trimmer view or not
 @property (assign, nonatomic) BOOL showsRulerView;
 
@@ -54,14 +67,24 @@
 
 - (void)resetSubviews;
 
+
 - (void)seekToTime:(CGFloat)startTime;
 
 - (void)hideTracker:(BOOL)flag;
+
+- (void)updatePlayHead:(CMTime)time;
+- (void)hidePlayHeadAnimated:(BOOL)animated;
+- (void)showPlayHeadAnimated:(BOOL)animated;
+
 
 @end
 
 @protocol ICGVideoTrimmerDelegate <NSObject>
 
-- (void)trimmerView:(ICGVideoTrimmerView *)trimmerView didChangeLeftPosition:(CGFloat)startTime rightPosition:(CGFloat)endTime;
+- (void)trimmerView:(ICGVideoTrimmerView *)trimmerView didChangeRangeWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
+
+- (void)trimmerViewWillBeginDraggingWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
+
+- (void)trimmerViewWillEndDraggingWithScroll:(BOOL)scrolled movedLeftHandle:(BOOL)leftHandle movedRightHandle:(BOOL)rightHandle;
 
 @end

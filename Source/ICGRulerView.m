@@ -30,7 +30,8 @@
     // Tranparent ruler
     CGContextClearRect(context, rect);
 
-    CGFloat leftMargin = 10;
+    CGFloat leftMargin = 15;
+
     CGFloat topMargin = 0;
     CGFloat height = CGRectGetHeight(self.frame);
     CGFloat width = CGRectGetWidth(self.frame);
