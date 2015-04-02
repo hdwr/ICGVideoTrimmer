@@ -35,6 +35,10 @@
 @property (nonatomic) CGPoint rightStartPoint;
 @property (nonatomic) CGFloat overlayWidth;
 
+// Persist this value so we can reset subviews and preserve scroll time
+@property (nonatomic) CGFloat scrollTime;
+
+
 @end
 
 @implementation ICGVideoTrimmerView
@@ -100,10 +104,10 @@
     [self.scrollView setContentSize:self.contentView.frame.size];
     [self.scrollView addSubview:self.contentView];
 
+    CGFloat ratio = (self.showsRulerView && !self.overlayRulerView) ? 0.58 : 1.0;
 
-    CGFloat ratio = self.showsRulerView ? 0.58 : 1.0;
     // NOTE: frameView is reset during addFrames
-    CGRect frameViewFrame = CGRectMake(15 + self.thumbPadding, 2, CGRectGetWidth(self.contentView.frame) - (15 * 2), CGRectGetHeight(self.contentView.frame) * ratio);
+    CGRect frameViewFrame = CGRectMake(15 + self.thumbPadding, 2, CGRectGetWidth(self.contentView.frame) - (15 * 2), CGRectGetHeight(self.contentView.frame) * ratio - 4);
     self.frameView = [[UIView alloc] initWithFrame:frameViewFrame];
     [self.frameView.layer setMasksToBounds:YES];
     [self.contentView addSubview:self.frameView];
@@ -120,8 +124,16 @@
         if (rulerWidth < CGRectGetWidth(self.frame) - self.thumbPadding + self.thumbWidth)
             rulerWidth = minRulerWidth;
 
-        CGRect rulerFrame = CGRectMake(self.thumbPadding, CGRectGetHeight(self.contentView.frame) * ratio, rulerWidth, CGRectGetHeight(self.contentView.frame) * (1 - ratio));
-        ICGRulerView *rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:self.themeColor];
+        CGRect rulerFrame;
+        ICGRulerView *rulerView;
+        if (self.overlayRulerView) {
+            rulerFrame = CGRectMake(self.thumbPadding, 2, rulerWidth, CGRectGetHeight(self.contentView.frame) - 4);
+            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:[UIColor whiteColor] compact:YES];
+
+        } else {
+            rulerFrame = CGRectMake(self.thumbPadding, CGRectGetHeight(self.contentView.frame) * ratio, rulerWidth, CGRectGetHeight(self.contentView.frame) * (1 - ratio));
+            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:self.themeColor compact:NO];
+        }
 
         [self.contentView addSubview:rulerView];
     }
@@ -140,6 +152,7 @@
 
     // add left overlay view
     CGRect leftViewFrame = CGRectMake(self.thumbPadding + self.thumbWidth - self.overlayWidth, 2, self.overlayWidth, CGRectGetHeight(self.frameView.frame));
+
     self.leftOverlayView = [[UIView alloc] initWithFrame:leftViewFrame];
     CGRect leftThumbFrame = CGRectMake(self.overlayWidth - self.thumbWidth, 0, self.thumbWidth, CGRectGetHeight(self.frameView.frame));
     if (self.leftThumbImage) {
@@ -190,8 +203,31 @@
     self.playHeadView.alpha = 0.0;
     [self addSubview:self.playHeadView];
 
+    // Preserve scroll, start and end times when resetting subviews
+    if (self.scrollTime > 0) {
+        CGFloat scrollXOffset = self.scrollTime * self.widthPerSecond;
+        // Don't fire scrollViewDidScroll callback.
+        [self.scrollView setDelegate:nil];
+        [self.scrollView setContentOffset:CGPointMake(scrollXOffset, 0)];
+        [self.scrollView setDelegate:self];
+    }
+
+    if (self.startTime > 0) {
+        CGFloat leftXOffset = (self.startTime - self.scrollTime) * self.widthPerSecond  + self.thumbPadding + self.thumbWidth - self.overlayWidth;
+        self.leftOverlayView.frame = CGRectMake(leftXOffset, 2, self.overlayWidth, CGRectGetHeight(self.frameView.frame));
+    }
+
+    if (self.endTime > 0) {
+        CGFloat rightXOffset = (self.endTime - self.scrollTime) * self.widthPerSecond + self.thumbPadding + self.thumbWidth;
+        self.rightOverlayView.frame = CGRectMake(rightXOffset, 2, self.overlayWidth, CGRectGetHeight(self.frameView.frame));
+    }
+
     [self updateBorderFrames];
-    [self notifyDelegateScrolled:YES movedLeftHandle:NO movedRightHandle:NO];
+
+    // Only call notifyDelegateScrolled at first initialization
+    if (self.scrollTime == 0 && self.startTime == 0 && self.endTime == 0) {
+        [self notifyDelegateScrolled:YES movedLeftHandle:NO movedRightHandle:NO];
+    }
 }
 
 - (void)updatePlayHead:(CMTime)time
@@ -200,6 +236,10 @@
     CGFloat offsetX = (timeSeconds * self.widthPerSecond)
                     - self.scrollView.contentOffset.x
                     + self.thumbPadding + 15;
+    // In case we reset subviews while playing
+    if (self.playHeadView.alpha == 0.0) {
+        self.playHeadView.alpha = 1.0;
+    }
     [self.playHeadView setFrame:CGRectMake(offsetX, 0, 2.0, CGRectGetHeight(self.frameView.frame) + 4.0)];
 }
 
@@ -348,14 +388,14 @@
     CGFloat previousStartTime = self.startTime;
     CGFloat previousEndTime = self.endTime;
 
-    CGFloat scrollTime = (self.scrollView.contentOffset.x) / self.widthPerSecond;
+    self.scrollTime = (self.scrollView.contentOffset.x) / self.widthPerSecond;
 
-    CGFloat start = CGRectGetMaxX(self.leftOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x -self.thumbWidth) / self.widthPerSecond;
+    CGFloat start = CGRectGetMaxX(self.leftOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x - self.thumbWidth - self.thumbPadding) / self.widthPerSecond;
     if (!self.trackerView.hidden && start != self.startTime) {
         [self seekToTime:start];
     }
     self.startTime = start;
-    self.endTime = CGRectGetMinX(self.rightOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x - self.thumbWidth) / self.widthPerSecond;
+    self.endTime = CGRectGetMinX(self.rightOverlayView.frame) / self.widthPerSecond + (self.scrollView.contentOffset.x - self.thumbWidth - self.thumbPadding) / self.widthPerSecond;
 
     // self.startTime = scrollTime + (CGRectGetMaxX(self.leftOverlayView.frame) - self.thumbPadding - self.thumbWidth) / self.widthPerSecond;
     // self.endTime = scrollTime + (CGRectGetMinX(self.rightOverlayView.frame) - self.thumbPadding - self.thumbWidth) / self.widthPerSecond;

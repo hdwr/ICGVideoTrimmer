@@ -47,6 +47,9 @@
 // Customize color for tracker
 @property (assign, nonatomic) UIColor *trackerColor;
 
+// Overlays ruler view on the frame (compact, without numbers)
+@property (assign, nonatomic) BOOL overlayRulerView;
+
 // Custom image for the left thumb
 @property (strong, nonatomic) UIImage *leftThumbImage;
 

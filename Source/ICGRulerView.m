@@ -10,12 +10,13 @@
 
 @implementation ICGRulerView
 
-- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width rulerColor:(UIColor *)color
+- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width rulerColor:(UIColor *)color compact:(BOOL)compact
 {
     self = [super initWithFrame:frame];
     if (self) {
         _widthPerSecond = width;
         _rulerColor = color;
+        _compact = compact;
     }
     self.opaque = NO;
 
@@ -36,10 +37,24 @@
     CGFloat height = CGRectGetHeight(self.frame);
     CGFloat width = CGRectGetWidth(self.frame);
     CGFloat minorTickSpace = self.widthPerSecond;
+
     NSInteger multiple = 5;
-    CGFloat majorTickLength = 16;
-    CGFloat minorTickLength = 8;
-    int multiple = 5;
+    CGFloat majorTickLength;
+    CGFloat minorTickLength;
+    CGFloat majorTickWidth;
+    CGFloat minorTickWidth;
+
+    if (self.compact) {
+        majorTickLength = 10;
+        minorTickLength = 6;
+        majorTickWidth = 1.0;
+        minorTickWidth = 1.0;
+    } else {
+        majorTickLength = 16;
+        minorTickLength = 8;
+        majorTickWidth = 2.0;
+        minorTickWidth = 1.0;
+    }
 
     CGFloat baseY = topMargin + height;
     CGFloat minorY = baseY - minorTickLength;
@@ -51,29 +66,32 @@
 
         CGContextSetFillColorWithColor(context, self.rulerColor.CGColor);
         if (step % multiple == 0) {
-            CGContextFillRect(context, CGRectMake(x, majorY, 2.0, majorTickLength));
+            CGContextFillRect(context, CGRectMake(x, majorY, majorTickWidth, majorTickLength));
 
-            UIFont *font = [UIFont fontWithName:@"ProximaNova-Semibold" size:12];
-            UIColor *textColor = self.rulerColor;
-            NSDictionary *stringAttrs = @{NSFontAttributeName:font, NSForegroundColorAttributeName:textColor};
+            // Don't show numbers when compact
+            if (!self.compact) {
 
-            NSInteger minutes = step / 60;
-            NSInteger seconds = step % 60;
+                UIFont *font = [UIFont fontWithName:@"ProximaNova-Semibold" size:12];
+                UIColor *textColor = self.rulerColor;
+                NSDictionary *stringAttrs = @{NSFontAttributeName:font, NSForegroundColorAttributeName:textColor};
 
-            NSAttributedString* attrStr;
+                NSInteger minutes = step / 60;
+                NSInteger seconds = step % 60;
 
-            if (minutes > 0) {
-                attrStr = [[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@"%ld:%02ld", (long) minutes, (long) seconds] attributes:stringAttrs];
+                NSAttributedString* attrStr;
+
+                if (minutes > 0) {
+                    attrStr = [[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@"%ld:%02ld", (long) minutes, (long) seconds] attributes:stringAttrs];
+                }
+                else {
+                    attrStr = [[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@":%02ld", (long) seconds] attributes:stringAttrs];
+                }
+
+                [attrStr drawAtPoint:CGPointMake(x-7, majorY - 15)];
             }
-            else {
-                attrStr = [[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@":%02ld", (long) seconds] attributes:stringAttrs];
-            }
-
-            [attrStr drawAtPoint:CGPointMake(x-7, majorY - 15)];
-
 
         } else {
-            CGContextFillRect(context, CGRectMake(x, minorY, 1.0, minorTickLength));
+            CGContextFillRect(context, CGRectMake(x, minorY, minorTickWidth, minorTickLength));
         }
 
         step++;
