@@ -10,12 +10,12 @@
 
 @implementation ICGRulerView
 
-- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width rulerColor:(UIColor *)color compact:(BOOL)compact
+- (instancetype)initWithFrame:(CGRect)frame widthPerSecond:(CGFloat)width themeColor:(UIColor *)color compact:(BOOL)compact
 {
     self = [super initWithFrame:frame];
     if (self) {
         _widthPerSecond = width;
-        _rulerColor = color;
+        _themeColor = color;
         _compact = compact;
     }
     self.opaque = NO;
@@ -64,7 +64,7 @@
     for (CGFloat x = leftMargin; x <= (leftMargin + width); x += minorTickSpace) {
         CGContextMoveToPoint(context, x, baseY);
 
-        CGContextSetFillColorWithColor(context, self.rulerColor.CGColor);
+        CGContextSetFillColorWithColor(context, self.themeColor.CGColor);
         if (step % multiple == 0) {
             CGContextFillRect(context, CGRectMake(x, majorY, majorTickWidth, majorTickLength));
 
@@ -72,7 +72,7 @@
             if (!self.compact) {
 
                 UIFont *font = [UIFont fontWithName:@"ProximaNova-Semibold" size:12];
-                UIColor *textColor = self.rulerColor;
+                UIColor *textColor = self.themeColor;
                 NSDictionary *stringAttrs = @{NSFontAttributeName:font, NSForegroundColorAttributeName:textColor};
 
                 NSInteger minutes = step / 60;

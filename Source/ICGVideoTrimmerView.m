@@ -128,11 +128,11 @@
         ICGRulerView *rulerView;
         if (self.overlayRulerView) {
             rulerFrame = CGRectMake(self.thumbPadding, 2, rulerWidth, CGRectGetHeight(self.contentView.frame) - 4);
-            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:[UIColor whiteColor] compact:YES];
+            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond themeColor:[UIColor whiteColor] compact:YES];
 
         } else {
             rulerFrame = CGRectMake(self.thumbPadding, CGRectGetHeight(self.contentView.frame) * ratio, rulerWidth, CGRectGetHeight(self.contentView.frame) * (1 - ratio));
-            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond rulerColor:self.themeColor compact:NO];
+            rulerView = [[ICGRulerView alloc] initWithFrame:rulerFrame widthPerSecond:self.widthPerSecond themeColor:self.themeColor compact:NO];
         }
 
         [self.contentView addSubview:rulerView];
