@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
 
   s.name         = "ICGVideoTrimmer"
-  s.version      = "1.0.7"
+  s.version      = "1.0.8"
   s.summary      = "A library for quick video trimming."
 
   s.description  = <<-DESC
