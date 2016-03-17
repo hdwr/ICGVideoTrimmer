@@ -20,7 +20,7 @@
 @property (strong, nonatomic) UIColor *trimmerColor;
 
 // Color for the ruler view
-@property (strong, nonatomic) UIColor *themeColor;
+@property (strong, nonatomic) UIColor *rulerColor;
 
 // Maximum length for the trimmed video
 @property (assign, nonatomic) CGFloat maxLength;
@@ -44,9 +44,6 @@
 // Show ruler view on the trimmer view or not
 @property (assign, nonatomic) BOOL showsRulerView;
 
-// Customize color for tracker
-@property (assign, nonatomic) UIColor *trackerColor;
-
 // Overlays ruler view on the frame (compact, without numbers)
 @property (assign, nonatomic) BOOL overlayRulerView;
 
@@ -59,10 +56,7 @@
 // Custom width for the top and bottom borders
 @property (assign, nonatomic) CGFloat borderWidth;
 
-// Custom width for thumb
-@property (assign, nonatomic) CGFloat thumbWidth;
-
-@property (weak, nonatomic) IBOutlet id<ICGVideoTrimmerDelegate> delegate;
+@property (strong, nonatomic) id<ICGVideoTrimmerDelegate> delegate;
 
 - (instancetype)initWithAsset:(AVAsset *)asset;
 
@@ -70,15 +64,9 @@
 
 - (void)resetSubviews;
 
-
-- (void)seekToTime:(CGFloat)startTime;
-
-- (void)hideTracker:(BOOL)flag;
-
 - (void)updatePlayHead:(CMTime)time;
 - (void)hidePlayHeadAnimated:(BOOL)animated;
 - (void)showPlayHeadAnimated:(BOOL)animated;
-
 
 @end
 
